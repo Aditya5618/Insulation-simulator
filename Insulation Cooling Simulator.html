@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Insulation Cooling Simulator</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+:root{--bg:#f3f6f8;--panel:#fff;--ink:#14213d;--mute:#5b6b80;--line:#d5dde5;--acc:#0b7285;--grid:#e6ecf1;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e1621;--panel:#16212f;--ink:#e8eef5;--mute:#95a5b8;--line:#2a3a4d;--acc:#4cc9e0;--grid:#1f2d3d}}
+:root[data-theme="dark"]{--bg:#0e1621;--panel:#16212f;--ink:#e8eef5;--mute:#95a5b8;--line:#2a3a4d;--acc:#4cc9e0;--grid:#1f2d3d}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "Atkinson Hyperlegible",system-ui,Arial,sans-serif}
+header{padding:20px 20px 4px;max-width:1150px;margin:auto}
+h1{font-size:1.6rem;margin:0 0 4px}
+header p{margin:0;color:var(--mute);max-width:70ch}
+main{max-width:1150px;margin:auto;padding:16px 20px 40px;display:grid;grid-template-columns:320px 1fr;gap:16px}
+@media(max-width:850px){main{grid-template-columns:1fr}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
+h2{font-size:1rem;margin:0 0 10px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:6px 0}
+.row label{flex:1}
+input[type=number]{width:84px;padding:5px 6px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);font:inherit}
+input[type=range]{width:100%}
+.mat{display:flex;align-items:center;gap:8px;margin:6px 0}
+.mat i{width:12px;height:12px;border-radius:50%;flex:none}
+.mat span{flex:1}
+button{font:inherit;padding:7px 12px;border-radius:8px;border:1px solid var(--acc);background:var(--acc);color:#fff;cursor:pointer}
+button.alt{background:transparent;color:var(--acc)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+.tabs{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+.tabs button{background:transparent;color:var(--ink);border-color:var(--line)}
+.tabs button[aria-selected=true]{background:var(--acc);color:#fff;border-color:var(--acc)}
+canvas{width:100%;height:380px;display:block}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.92rem}
+th,td{text-align:left;padding:6px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+.note{color:var(--mute);font-size:.88rem;margin:8px 0 0}
+select{padding:5px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);font:inherit}
+.btns{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+header{background:linear-gradient(120deg,#0b3c49,#0b7285);color:#fff;max-width:none;margin:0;padding:22px max(20px,calc(50% - 555px)) 20px}
+header p{color:#d4eef3}
+.ctl{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin:8px 0}
+.ctl input[type=range]{flex:1;min-width:140px}
+.ctl label{display:flex;gap:6px;align-items:center;color:var(--mute)}
+.cups{display:flex;gap:16px;flex-wrap:wrap;margin-top:12px}
+.cup{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:78px}
+.glass{width:60px;height:84px;border-style:solid;border-radius:0 0 14px 14px;background:var(--bg);display:flex;align-items:flex-end;overflow:hidden}
+.water{width:100%}
+.cup span{color:var(--mute);font-size:.85rem}
+</style>
+</head>
+<body>
+<header>
+<h1>Insulation cooling simulator</h1>
+<p>Warm water in a wrapped container loses heat through the insulation (Fourier’s law) and cools following Newton’s law of cooling. Change any value on the left and the graphs update instantly. Results are calculated and simulated, not measured.</p>
+</header>
+<main>
+<section class="panel" aria-label="Inputs">
+<h2>Inputs (sample data loaded)</h2>
+<div class="row"><label for="r">Container radius (cm)</label><input id="r" type="number" step="0.1" min="1"></div>
+<div class="row"><label for="h">Container height (cm)</label><input id="h" type="number" step="0.5" min="1"></div>
+<div class="row"><label for="m">Mass of water (g)</label><input id="m" type="number" step="10" min="10"></div>
+<div class="row"><label for="T0">Starting water temp (°C)</label><input id="T0" type="number" step="1"></div>
+<div class="row"><label for="Te">Room temperature (°C)</label><input id="Te" type="number" step="1"></div>
+<div class="row"><label for="d">Insulation thickness (mm)</label><input id="d" type="number" step="0.5" min="0.5"></div>
+<div class="row"><label for="tt">Time to simulate (min)</label><input id="tt" type="number" step="10" min="10"></div>
+<h2 style="margin-top:14px">Materials: conductivity K (W/m·K)</h2>
+<div id="mats"></div>
+<div class="btns">
+<button id="add" class="alt" type="button">Add material</button>
+<button id="reset" type="button">Reset to sample data</button>
+</div>
+<p class="note">Safe range: keep the starting temperature below 90 °C. K values are approximate; check your textbook.</p>
+</section>
+<section>
+<div class="panel">
+<div class="tabs" role="tablist">
+<button role="tab" aria-selected="true" data-t="0">Cooling curves</button>
+<button role="tab" aria-selected="false" data-t="1">Heat-loss rate</button>
+<button role="tab" aria-selected="false" data-t="2">Thickness study</button>
+</div>
+<div id="thickctl" class="row" hidden><label for="tm">Material for thickness study</label><select id="tm"></select></div>
+<canvas id="cv" role="img" aria-label="Graph of simulation results"></canvas>
+<p class="note"><b>How to read the graphs:</b> solid lines and filled bars show your current values. Dashed lines and outlined bars show the original sample data, so you can see how your changes compare. Move the mouse (or finger) over a graph to read exact values.</p>
+</div>
+<div class="panel" style="margin-top:16px">
+<h2>Live simulation: watch the cups cool</h2>
+<div class="ctl"><button id="play" type="button">Play</button><input id="ts" type="range" min="0" max="1000" value="0" aria-label="Simulation time"><b id="tlab">0 min</b></div>
+<div class="ctl">
+<label>Method <select id="meth"><option value="f">Formula (Newton)</option><option value="s">Step-by-step (numerical)</option></select></label>
+<label>Step size <select id="dt"><option value="1">1 s</option><option value="10" selected>10 s</option><option value="60">60 s</option><option value="300">300 s</option></select></label>
+<label>Speed <select id="sp"><option value="2">2 min/s</option><option value="5" selected>5 min/s</option><option value="10">10 min/s</option></select></label>
+</div>
+<p class="note">Each cup’s wall thickness shows the insulation thickness, and the water colour shows the temperature (red is hot, blue is cold).</p>
+<div id="cups" class="cups"></div>
+<div id="stp" hidden></div>
+</div>
+<div class="panel scroll" style="margin-top:16px">
+<h2>Results table</h2>
+<table id="tbl"></table>
+<p class="note" id="fn"></p>
+</div>
+</section>
+</main>
+<script>
+const SAMPLE={r:3.5,h:10,m:250,T0:70,Te:30,d:5,tt:120,
+mats:[["Thermocol",0.033],["Cotton",0.040],["Cardboard",0.060],["Wood",0.12],["Rubber",0.16]]};
+const COL=["#0b7285","#e8590c","#7048e8","#2f9e44","#c2255c","#f08c00","#1971c2","#495057"];
+const c=4200;let mats=[],tab=0;
+const $=id=>document.getElementById(id);
+const ids=["r","h","m","T0","Te","d","tt"];
+function load(){ids.forEach(i=>$(i).value=SAMPLE[i]);mats=SAMPLE.mats.map(a=>({n:a[0],K:a[1],on:true}));buildMats();run()}
+function buildMats(){
+ $("mats").innerHTML="";
+ mats.forEach((o,i)=>{
+  const d=document.createElement("div");d.className="mat";
+  d.innerHTML=`<input type="checkbox" ${o.on?"checked":""} aria-label="Show ${o.n}"><i style="background:${COL[i%COL.length]}"></i><span>${o.n}</span><input type="number" step="0.005" min="0.001" value="${o.K}" aria-label="K of ${o.n}">`;
+  const[cb,,,num]=d.children;
+  cb.onchange=()=>{o.on=cb.checked;run()};
+  num.oninput=()=>{o.K=parseFloat(num.value);run()};
+  $("mats").appendChild(d)});
+}
+function P(){const g=i=>parseFloat($(i).value);
+ return{r:g("r")/100,h:g("h")/100,m:g("m")/1000,T0:g("T0"),Te:g("Te"),d:g("d")/1000,tt:g("tt")*60}}
+function calc(p,K,d){const A=2*Math.PI*p.r*p.h;
+ const rate=K*A*(p.T0-p.Te)/d, k=K*A/(d*p.m*c);
+ return{A,rate,k,T:t=>p.Te+(p.T0-p.Te)*Math.exp(-k*t)}}
+function css(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim()}
+function frame(cv,xl,yl,xmin,xmax,ymin,ymax){
+ const dpr=window.devicePixelRatio||1,W=cv.clientWidth,H=cv.clientHeight;
+ cv.width=W*dpr;cv.height=H*dpr;const x=cv.getContext("2d");x.setTransform(dpr,0,0,dpr,0,0);
+ const L=56,R=14,T=14,B=44,pw=W-L-R,ph=H-T-B;
+ const X=v=>L+(v-xmin)/(xmax-xmin)*pw,Y=v=>T+ph-(v-ymin)/(ymax-ymin)*ph;
+ x.font="12px Atkinson Hyperlegible,Arial,sans-serif";x.fillStyle=css("--mute");x.strokeStyle=css("--grid");x.lineWidth=1;
+ for(let i=0;i<=5;i++){const yv=ymin+(ymax-ymin)*i/5,yy=Y(yv);x.beginPath();x.moveTo(L,yy);x.lineTo(L+pw,yy);x.stroke();
+  x.textAlign="right";x.fillText(yv.toFixed(ymax>50?0:1),L-6,yy+4)}
+ for(let i=0;i<=5;i++){const xv=xmin+(xmax-xmin)*i/5;x.textAlign="center";x.fillText(xv.toFixed(xmax>50?0:1),X(xv),T+ph+16)}
+ x.fillStyle=css("--ink");x.fillText(xl,L+pw/2,H-8);
+ x.save();x.translate(14,T+ph/2);x.rotate(-Math.PI/2);x.fillText(yl,0,0);x.restore();
+ return{x,X,Y,L,T,pw,ph}}
+function line(cv,series,xl,yl,xmin,xmax,ymin,ymax,pts){
+ const f=frame(cv,xl,yl,xmin,xmax,ymin,ymax),x=f.x;
+ series.forEach(s=>{x.setLineDash(s.g?[6,5]:[]);x.globalAlpha=s.g?.55:1;x.strokeStyle=s.col;x.lineWidth=s.g?1.8:2.5;x.beginPath();
+  s.pts.forEach((q,i)=>i?x.lineTo(f.X(q[0]),f.Y(q[1])):x.moveTo(f.X(q[0]),f.Y(q[1])));x.stroke();
+  if(pts){x.fillStyle=s.col;s.pts.forEach(q=>{x.beginPath();x.arc(f.X(q[0]),f.Y(q[1]),4,0,7);x.fill()})}});
+ x.setLineDash([]);x.globalAlpha=1;let lx=f.L+10,ly=f.T+8;x.font="13px Atkinson Hyperlegible,Arial,sans-serif";
+ series.filter(s=>!s.g).forEach(s=>{x.fillStyle=s.col;x.fillRect(lx,ly,14,4);x.fillStyle=css("--ink");x.textAlign="left";x.fillText(s.n,lx+20,ly+6);ly+=18});hover(f,series,xmin,xmax)}
+let hx=null,now=0,playing=false,last=0;
+const meth=()=>$("meth").value,DT=()=>+$("dt").value;
+function Tf(q,K,d){const f=calc(q,K,d);if(meth()=="f")return f.T;
+ const dt=DT(),n=Math.ceil(q.tt/dt)+1,a=[q.T0];
+ for(let i=0;i<n;i++)a.push(a[i]-K*f.A*(a[i]-q.Te)/d*dt/(q.m*c));
+ return t=>{const u=Math.min(t/dt,n),i=Math.floor(u);return i>=n?a[n]:a[i]+(a[i+1]-a[i])*(u-i)}}
+function drawCups(p,on){const t=now*p.tt;let h="";
+ on.forEach(o=>{const T=Tf(p,o.K,p.d)(t),f=Math.max(0,Math.min(1,(T-p.Te)/((p.T0-p.Te)||1))),w=Math.max(3,Math.min(14,p.d*1200));
+  h+=`<div class="cup"><div class="glass" style="border-color:${COL[o.i%COL.length]};border-width:0 ${w}px ${w}px"><div class="water" style="height:${8+f*92}%;background:hsl(${210-210*f},80%,50%)"></div></div><b>${T.toFixed(1)} °C</b><span>${o.n}</span></div>`});
+ $("cups").innerHTML=h;$("tlab").textContent=(t/60).toFixed(0)+" min"}
+function drawSteps(p,on){const e=$("stp");e.hidden=meth()=="f"||!on.length;if(e.hidden)return;
+ const o=on[0],f=calc(p,o.K,p.d),dt=DT();let T=p.T0;
+ let h=`<h2 style="margin-top:14px">Step-by-step working for ${o.n} (first 6 steps, step size ${dt} s)</h2><div class="scroll"><table><tr><th>Step</th><th>Time (s)</th><th>Temperature (°C)</th><th>Heat lost ΔQ (J)</th><th>Drop ΔT = ΔQ/mc (°C)</th></tr>`;
+ for(let i=0;i<6;i++){const q=f.A*o.K*(T-p.Te)/p.d*dt,dT=q/(p.m*c);h+=`<tr><td>${i+1}</td><td>${i*dt}</td><td>${T.toFixed(3)}</td><td>${q.toFixed(1)}</td><td>${dT.toFixed(4)}</td></tr>`;T-=dT}
+ const fm=f.T(p.tt),sm=Tf(p,o.K,p.d)(p.tt);
+ e.innerHTML=h+`</table></div><p class="note">Each step: ΔQ = (K·A·(T − T_room)/d)·Δt, then ΔT = ΔQ/(m·c). At ${(p.tt/60).toFixed(0)} min the step-by-step method gives ${sm.toFixed(2)} °C and the formula gives ${fm.toFixed(2)} °C (difference ${Math.abs(sm-fm).toFixed(3)} °C). Smaller steps match the formula more closely.</p>`}
+function hover(f,series,xmin,xmax){const x=f.x;
+ if(tab==0){const X=f.X(now*xmax);x.strokeStyle=css("--acc");x.lineWidth=1.5;x.setLineDash([2,3]);x.beginPath();x.moveTo(X,f.T);x.lineTo(X,f.T+f.ph);x.stroke();x.setLineDash([])}
+ if(hx==null||hx<f.L||hx>f.L+f.pw)return;
+ const xv=xmin+(hx-f.L)/f.pw*(xmax-xmin),rows=[];
+ series.filter(s=>!s.g).forEach(s=>{const a=s.pts;let i=0;while(i<a.length-2&&a[i+1][0]<xv)i++;
+  const u=(xv-a[i][0])/((a[i+1][0]-a[i][0])||1),y=a[i][1]+(a[i+1][1]-a[i][1])*Math.max(0,Math.min(1,u));rows.push([s,y])});
+ x.strokeStyle=css("--mute");x.lineWidth=1;x.beginPath();x.moveTo(hx,f.T);x.lineTo(hx,f.T+f.ph);x.stroke();
+ rows.forEach(([s,y])=>{x.fillStyle=s.col;x.beginPath();x.arc(hx,f.Y(y),4.5,0,7);x.fill()});
+ const unit=tab==0?" °C":" W",w=175,hh=24+rows.length*18;let bx=hx+12;if(bx+w>f.L+f.pw)bx=hx-w-12;
+ x.fillStyle=css("--panel");x.strokeStyle=css("--line");x.fillRect(bx,f.T+6,w,hh);x.strokeRect(bx,f.T+6,w,hh);
+ x.font="12px Atkinson Hyperlegible,Arial,sans-serif";x.textAlign="left";x.fillStyle=css("--mute");x.fillText(xv.toFixed(1)+(tab==0?" min":" mm"),bx+8,f.T+22);
+ rows.forEach(([s,y],i)=>{x.fillStyle=s.col;x.fillRect(bx+8,f.T+31+i*18,10,10);x.fillStyle=css("--ink");x.fillText(s.n.split(" (")[0]+": "+y.toFixed(1)+unit,bx+24,f.T+40+i*18)})}
+function SPm(){return{r:SAMPLE.r/100,h:SAMPLE.h/100,m:SAMPLE.m/1000,T0:SAMPLE.T0,Te:SAMPLE.Te,d:SAMPLE.d/1000,tt:SAMPLE.tt*60}}
+function sK(n){const a=SAMPLE.mats.find(q=>q[0]==n);return a?a[1]:null}
+function run(){
+ const p=P();if(ids.some(i=>isNaN(parseFloat($(i).value)))||p.d<=0)return;
+ const s=SPm(),cv=$("cv"),on=mats.map((o,i)=>({...o,i})).filter(o=>o.on&&o.K>0),col=o=>COL[o.i%COL.length];
+ if(tab==0){const tm=p.tt/60;
+  const mk=(q,K,d,g)=>{const T=g?calc(q,K,d).T:Tf(q,K,d),pts=[];for(let j=0;j<=120;j++){const t=p.tt*j/120;pts.push([t/60,T(t)])}return pts};
+  const gh=on.filter(o=>sK(o.n)!=null).map(o=>({n:o.n,g:1,col:col(o),pts:mk(s,sK(o.n),s.d,1)}));
+  const cur=on.map(o=>({n:o.n,col:col(o),pts:mk(p,o.K,p.d)}));
+  line(cv,gh.concat(cur),"Time (minutes)","Water temperature (°C)",0,tm,Math.min(p.Te,s.Te)-2,Math.max(p.T0,s.T0)+2)}
+ else if(tab==1){
+  const rs=on.map(o=>calc(p,o.K,p.d).rate),gs=on.map(o=>sK(o.n)==null?null:calc(s,sK(o.n),s.d).rate);
+  const mx=Math.max(1,...rs,...gs.filter(v=>v!=null))*1.15;
+  const f=frame(cv,"","Heat-loss rate (W)",0,on.length,0,mx),x=f.x,bw=f.pw/Math.max(on.length,1);
+  on.forEach((o,j)=>{x.fillStyle=col(o);const y=f.Y(rs[j]);x.fillRect(f.L+j*bw+bw*.2,y,bw*.6,f.T+f.ph-y);
+   if(gs[j]!=null){x.setLineDash([5,4]);x.strokeStyle=css("--ink");x.lineWidth=1.5;x.strokeRect(f.L+j*bw+bw*.2,f.Y(gs[j]),bw*.6,f.T+f.ph-f.Y(gs[j]));x.setLineDash([])}
+   x.fillStyle=css("--ink");x.textAlign="center";x.fillText(rs[j].toFixed(2)+" W",f.L+j*bw+bw/2,y-6);x.fillText(o.n,f.L+j*bw+bw/2,f.T+f.ph+18)})}
+ else{const sel=mats[+$("tm").value]||on[0];if(!sel)return;
+  const ds=[1,2,3,5,7.5,10,15,20,25,30],pts=ds.map(d=>[d,calc(p,sel.K,d/1000).rate]),k0=sK(sel.n);
+  const gh=k0==null?[]:[{n:sel.n,g:1,col:col({i:mats.indexOf(sel)}),pts:ds.map(d=>[d,calc(s,k0,d/1000).rate])}];
+  const top=Math.max(...mats.filter(o=>o.K>0).map(o=>calc(p,o.K,.001).rate),...SAMPLE.mats.map(a=>calc(s,a[1],.001).rate))*1.05;
+  line(cv,gh.concat([{n:sel.n+" (K = "+sel.K+")",col:col({i:mats.indexOf(sel)}),pts}]),"Thickness (mm)","Heat-loss rate (W)",0,30,0,top,true)}
+ table(p,on);drawCups(p,on);drawSteps(p,on)}
+function runOld(){
+ const p=P();if(ids.some(i=>isNaN(parseFloat($(i).value)))||p.d<=0)return;
+ const on=mats.map((o,i)=>({...o,i})).filter(o=>o.on&&o.K>0);
+ const cv=$("cv");
+ if(tab==0){const tmax=p.tt/60;
+  line(cv,on.map(o=>{const f=calc(p,o.K,p.d);const pts=[];for(let j=0;j<=120;j++){const t=p.tt*j/120;pts.push([t/60,f.T(t)])}
+   return{n:o.n,col:COL[o.i%COL.length],pts}}),"Time (minutes)","Water temperature (°C)",0,tmax,Math.min(p.Te,p.T0)-2,p.T0+2)}
+ else if(tab==1){const rs=on.map(o=>calc(p,o.K,p.d).rate),mx=Math.max(1,...rs)*1.15;
+  const f=frame(cv,"","Heat-loss rate (W)",0,on.length,0,mx),x=f.x,bw=f.pw/Math.max(on.length,1);
+  on.forEach((o,j)=>{x.fillStyle=COL[o.i%COL.length];const y=f.Y(rs[j]);x.fillRect(f.L+j*bw+bw*.2,y,bw*.6,f.T+f.ph-y);
+   x.fillStyle=css("--ink");x.textAlign="center";x.fillText(rs[j].toFixed(2)+" W",f.L+j*bw+bw/2,y-6);x.fillText(o.n,f.L+j*bw+bw/2,f.T+f.ph+18)})}
+ else{const sel=mats[+$("tm").value]||on[0];if(!sel)return;const ds=[1,2,3,5,7.5,10,15,20,25,30],pts=ds.map(d=>[d,calc(p,sel.K,d/1000).rate]);
+  line(cv,[{n:sel.n+" (K = "+sel.K+")",col:COL[mats.indexOf(sel)%COL.length],pts}],"Thickness (mm)","Heat-loss rate (W)",0,30,0,Math.max(...pts.map(q=>q[1]))*1.1,true)}
+ table(p,on)}
+function table(p,on){
+ const A=2*Math.PI*p.r*p.h;let h="<tr><th>Material</th><th>K (W/m·K)</th><th>Heat-loss rate (W)</th><th>k (1/s)</th><th>Temp at end (°C)</th><th>Heat lost (kJ)</th></tr>";
+ let best=null;
+ on.forEach(o=>{const f=calc(p,o.K,p.d),Te=f.T(p.tt);if(!best||f.rate<best.r)best={n:o.n,r:f.rate};
+  h+=`<tr><td>${o.n}</td><td>${o.K}</td><td>${f.rate.toFixed(2)}</td><td>${f.k.toExponential(2)}</td><td>${Te.toFixed(1)}</td><td>${(p.m*c*(p.T0-Te)/1000).toFixed(1)}</td></tr>`});
+ $("tbl").innerHTML=h;
+ $("fn").textContent=`Side surface area A = ${A.toFixed(4)} m². ${best?"Best insulator in this setup: "+best.n+".":"Tick at least one material."} Only conduction through the curved side is modelled. Dashed lines and outlined bars show the original sample data for comparison.`}
+function fillSel(){const s=$("tm"),v=s.value;s.innerHTML=mats.map((o,i)=>`<option value="${i}">${o.n}</option>`).join("");s.value=v||0}
+ids.forEach(i=>$(i).addEventListener("input",run));
+$("tm").onchange=run;
+document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{
+ tab=+b.dataset.t;document.querySelectorAll(".tabs button").forEach(x=>x.setAttribute("aria-selected",x==b));
+ $("thickctl").hidden=tab!=2;run()});
+$("reset").onclick=()=>{load();fillSel()};
+$("add").onclick=()=>{const n=prompt("Material name?");if(!n)return;const K=parseFloat(prompt("Thermal conductivity K (W/m·K)?","0.05"));
+ if(!(K>0))return;mats.push({n,K,on:true});buildMats();fillSel();run()};
+window.addEventListener("resize",run);
+$("meth").onchange=$("dt").onchange=()=>run();
+$("ts").oninput=()=>{now=$("ts").value/1000;run()};
+$("play").onclick=()=>{playing=!playing;$("play").textContent=playing?"Pause":"Play";if(playing){if(now>=1)now=0;last=performance.now();requestAnimationFrame(loop)}};
+function loop(t){if(!playing)return;const p=P();now+=(t-last)/1000*(+$("sp").value*60)/p.tt;last=t;
+ if(now>=1){now=1;playing=false;$("play").textContent="Play"}
+ $("ts").value=now*1000;run();if(playing)requestAnimationFrame(loop)}
+const cv0=$("cv");
+cv0.addEventListener("mousemove",e=>{hx=e.offsetX;run()});
+cv0.addEventListener("mouseleave",()=>{hx=null;run()});
+cv0.addEventListener("touchmove",e=>{hx=e.touches[0].clientX-cv0.getBoundingClientRect().left;run()},{passive:true});
+load();fillSel();run();
+</script>
+</body>
+</html>
